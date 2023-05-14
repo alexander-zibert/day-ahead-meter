@@ -1,4 +1,14 @@
 <template>
+  <fieldset>
+    <legend>Wähle einen Tag</legend>
+
+    <input type="radio" id="one" value="today" v-model="state" />
+    <label for="one">Heute</label>
+
+    <input type="radio" id="two" value="tomorrow" v-model="state" />
+    <label for="two">Morgen</label>
+  </fieldset>
+
   <h2>Datum</h2>
   {{ formatDate(date) }}
   <h2>Volatilität</h2>
@@ -95,13 +105,25 @@ const combineRanges = (data) => {
 
 export default {
   data() {
-    return { data: [], date: null };
+    return { data: [], date: null, state: "today" };
+  },
+  watch: {
+    async state(newState) {
+      const date =
+        newState === "today"
+          ? new Date().valueOf()
+          : new Date().valueOf() + 24 * 3600 * 1000;
+      const data = await fetch(
+        `https://day-ahead-meter.alexander-zibert.workers.dev/?date=${date}`
+      ).then((resp) => resp.json());
+      this.date = data.date;
+      this.data = data.data;
+    },
   },
   async mounted() {
     const data = await fetch(
       `https://day-ahead-meter.alexander-zibert.workers.dev/?date=${new Date().valueOf()}`
     ).then((resp) => resp.json());
-    console.log(data);
     this.date = data.date;
     this.data = data.data;
   },
