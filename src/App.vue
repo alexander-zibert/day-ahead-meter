@@ -87,6 +87,29 @@ const dateFormatter = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
 });
 
+const beginingOfDay = (date, timeZone) => {
+  const parts = Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  }).formatToParts(date);
+  if (!parts) {
+    return new Date();
+  }
+  const hour = Number(parts.find((i) => i.type === "hour")?.value);
+  const minute = Number(parts.find((i) => i.type === "minute")?.value);
+  const second = Number(parts.find((i) => i.type === "second")?.value);
+  return new Date(
+    1000 *
+      Math.floor(
+        (date.valueOf() - hour * 3600000 - minute * 60000 - second * 1000) /
+          1000
+      )
+  );
+};
+
 const combineRanges = (data) => {
   if (data.length === 0) {
     return [];
@@ -103,27 +126,31 @@ const combineRanges = (data) => {
   return ranges;
 };
 
+const getData = async function (state) {
+  const date =
+    state === "today"
+      ? new Date().valueOf()
+      : new Date().valueOf() + 24 * 3600 * 1000;
+  const ts = beginingOfDay(date).valueOf();
+  const data = await fetch(
+    `https://day-ahead-meter.alexander-zibert.workers.dev/?date=${ts}`
+  ).then((resp) => resp.json());
+  return data;
+};
+
 export default {
   data() {
     return { data: [], date: null, state: "today" };
   },
   watch: {
     async state(newState) {
-      const date =
-        newState === "today"
-          ? new Date().valueOf()
-          : new Date().valueOf() + 24 * 3600 * 1000;
-      const data = await fetch(
-        `https://day-ahead-meter.alexander-zibert.workers.dev/?date=${date}`
-      ).then((resp) => resp.json());
+      const data = await getData(newState);
       this.date = data.date;
       this.data = data.data;
     },
   },
   async mounted() {
-    const data = await fetch(
-      `https://day-ahead-meter.alexander-zibert.workers.dev/?date=${new Date().valueOf()}`
-    ).then((resp) => resp.json());
+    const data = await getData(this.state);
     this.date = data.date;
     this.data = data.data;
   },

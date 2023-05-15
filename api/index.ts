@@ -121,35 +121,36 @@ export default {
       `https://test.com/?date=${startOfDate.toISOString()}`,
       request
     );
-    console.log(cacheKey);
     const cache = caches.default;
     let response = await cache.match(cacheKey);
     if (response) {
-      console.log("cache hit for", cacheKey.url);
       return response;
     }
 
     const fetchedResponse = await getData(startOfDate);
 
-    const data = await fetchedResponse.text();
-
-    const json = JSON.stringify({
+    const rawData = await fetchedResponse.text();
+    const data = {
       date: startOfDate.valueOf(),
-      data: parseData(data)
-        .filter(({ date }) => date === today)
+      data: parseData(rawData)
+        .filter(({ date, value }) => date === today && Number.isFinite(value))
         .map(({ start, end, value }) => ({ start, end, value })),
-    });
+    };
+    const json = JSON.stringify(data);
+    const headers: any = {
+      "content-type": "application/json;charset=UTF-8",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+      "Access-Control-Max-Age": "86400",
+    };
+    if (data.data.length > 90) {
+      headers["Cache-Control"] = "public, max-age=2592000, s-maxage=2592000";
+    }
 
-    const resp = new Response(json, {
-      headers: {
-        "content-type": "application/json;charset=UTF-8",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-        "Access-Control-Max-Age": "86400",
-        "Cache-Control": "s-maxage=2592000",
-      },
-    });
-    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    const resp = new Response(json, { headers });
+    if (data.data.length > 90) {
+      ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    }
     return resp;
   },
 };
